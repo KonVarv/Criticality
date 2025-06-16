@@ -1,1 +1,239 @@
 
+%upload the timeseries 
+ts=ts(1:1:end);
+
+figure(1);
+plot(ts);
+
+% timeseries distribution
+
+figure;
+edges=[-70:0.2:-55]; % the values are in mV
+histogram(ts,edges);
+xlabel('Vm (mV)')
+title("Vm(mV) distribution")
+
+%turning points distribution
+tpts=zeros(numel(ts),1);
+for i= 2:numel(ts)-1
+    if (ts(i+1)-ts(i))*(ts(i)-ts(i-1))<0
+        tpts(i,1)=1;
+    else 
+        continue;
+    end
+end
+
+indtpts= find(tpts==1);
+valtpts=ts(indtpts);
+
+figure;
+histogram(valtpts,edges);
+xlabel('Vm (mV)');
+title("Turning points distribution");
+
+%%
+%After creating the distribution, set the laminar region
+phi0=-62.4; %the starting point of the laminar region
+philstart=-61.4; % the edge of the variable ending point of the laminar region
+step=0.05; % the distance between consecutive ending point
+runs= 5; % the number of different ending points 
+
+
+
+if philstart>phi0
+philend= philstart+step*(runs-1); %the other edge of the variable ending point of the laminar region
+
+% extract the laminar lengths
+
+a= runs;
+L=zeros(numel(ts),a); 
+k=1;
+lamend=[philstart:step:philend]; %the variable ending points of the laminar region
+
+figure;
+histogram(valtpts,edges);
+title("Turning points distribution");
+hold on;
+xlabel('Vm (mV)');
+xline([phi0 philstart philend],'--r',{'Φ0' 'Φl(start)' 'Φl(end)'}) ;
+
+figure;
+histogram(ts,edges);
+title("Vm(mV) distribution");
+hold on;
+xlabel('Vm (mV)');
+xline([phi0 philstart philend],'--r',{'Φ0' 'Φl(start)' 'Φl(end)'}) ;
+
+figure;
+plot(ts);
+xlabel('t (ms)')
+ylabel('Vm (mV)')
+title(str);
+hold on
+yline([phi0 philstart philend],'--k',{'Φ0' 'Φl(start)' 'Φl(end)'},'LineWidth',2.5) ;
+
+% extract the laminar lengths
+j=1;
+F = zeros(1000000,runs);
+for phil= philstart:step:philend
+    Dt=0;
+    
+  for ii = 1:numel(ts)
+    if phi0<= ts(ii) && ts(ii)<= phil
+        Dt = Dt + 1;
+    else
+        if Dt ~= 0
+            F(Dt,j) = F(Dt,j) + 1;
+            Dt = 0;
+        else
+            continue;
+        end
+    end
+  end
+j=j+1;
+end
+
+else
+    
+    step=-step;
+    philend= philstart+(step*(runs-1));
+
+% extract the laminar lengths
+a= runs;
+L=zeros(numel(ts),a);
+k=1;
+lamend=philstart:step:philend;
+
+figure;
+histogram(valtpts,edges);
+title("Turning points distribution");
+hold on;
+xlabel('Vm (mV)');
+xline([phi0 philstart philend],'--r',{'Φ0' 'Φl(start)' 'Φl(end)'}) ;
+
+figure;
+histogram(ts,edges);
+title("Vm(mV) distribution");
+hold on;
+xlabel('Vm (mV)');
+xline([phi0 philstart philend],'--r',{'Φ0' 'Φl(start)' 'Φl(end)'}) ;
+
+figure;
+plot(ts);
+xlabel('t (ms)')
+ylabel('Vm (mV)')
+title(str);
+hold on
+yline([phi0 philstart philend],'--k',{'Φ0' 'Φl(start)' 'Φl(end)'},'LineWidth',2.5) ;
+
+% extract the laminar lengths
+j=1;
+F = zeros(100000,runs); 
+for phil= philstart:step:philend
+    Dt=0;
+    
+  for ii = 1:numel(ts)
+    if phi0>= ts(ii) && ts(ii)>= phil
+        Dt = Dt + 1;
+    else
+        if Dt ~= 0
+            F(Dt,j) = F(Dt,j) + 1;
+            Dt = 0;
+        else
+            continue;
+        end
+    end
+  end
+j=j+1;
+end
+end
+
+% fitting of the laminar lengths distribution
+P2= zeros(a,1);
+P3= zeros(a,1);
+
+
+edges2=100.5; %the larger size of laminar lengths considered for the fitting
+
+F=F(1:edges2,:);
+for t=1:a
+y=(F(:,t))';
+x= 1: numel(y);
+
+
+lb= [0,0,0];
+ub=[inf, 2.5, inf];
+fun = @(p, xdata )p(1)*((xdata.^-p(2)).*(exp(-p(3).*xdata)));
+p0= rand(3,1);
+options = optimset('MaxFunEvals',5000);
+bestp = lsqcurvefit(fun,p0,x,y,lb, ub);
+
+%plotting it
+
+p1 = bestp(1);
+p2 = bestp(2);
+p3 = bestp(3);
+yfit = p1*((x.^-p2).*(exp(-p3.*x)));
+
+Rsq = 1 - (sum((y - yfit).^2)/sum((y - mean(y)).^2)); % R^2
+
+figure;
+loglog(y,'o','MarkerEdgeColor','k','MarkerFaceColor','k');
+hold on
+loglog(x,yfit,'r');
+xlabel('l')
+ylabel('P(l)')
+title("Laminar lengths distribution for phil="+lamend(t))
+legend('Data','Fitted Curve')
+p2disp= round(p2,3);
+p3disp= round(p3,3);
+Rsqdisp= round(Rsq,3);
+format short g
+str = ["p2="+p2disp,"p3="+p3disp, "R^2="+Rsq];
+text(1.5,0.5*y(1),str)
+
+% discard any obvious bad fits
+
+if Rsq<0.97
+    p2=0;
+    p3=0;
+end
+P2(t,1)= p2;
+P3(t,1)= p3;
+
+end
+
+%plotting p and q values
+figure;
+hold on
+xlabel('End of laminar region');
+ylabel('P2(phil) and P3(phil)')
+title("P2 and P3 values for phi0="+phi0);
+xaxis= 0:numel(P2)-1;
+plot(lamend,P2, '-s','MarkerIndices',1:1:length(P2), ...
+    'MarkerFaceColor','black', ...
+     'MarkerSize',10);
+hold on;
+plot(lamend,P3,'-d','MarkerIndices',1:1:length(P3), ...
+    'MarkerFaceColor','black', ...
+     'MarkerSize',8);
+legend('p2','p3')
+hold off;
+
+figure;
+hold on
+xlabel('End of laminar region');
+ylabel('P3(phil)')
+title("P3 values for phi0="+phi0);
+plot(lamend,P3,'-d','MarkerIndices',1:1:length(P3), ...
+    'MarkerFaceColor','black', ...
+     'MarkerSize',8);
+ 
+ figure;
+hold on
+xlabel('End of laminar region');
+ylabel('P2(phil)')
+title("P2 values for phi0="+phi0);
+plot(lamend,P2,'-d','MarkerIndices',1:1:length(P2), ...
+    'MarkerFaceColor','black', ...
+     'MarkerSize',8);
