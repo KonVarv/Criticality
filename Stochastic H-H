@@ -1,4 +1,13 @@
 function [Y] = StochasticHH_func(loop,dt, I, Area,Vr)
+% loop designates the number of loops the code is going to make
+%
+% NOTE! because of the internal variable timestep which is conditional to the membrane potential 
+%around which the system flactuates, one cannot accurately predict the final length of the timeseries
+%
+% dt designates the enforced constant timestep in ms
+% I designates the external applied current density in μA/cm^2
+% Area designates the total membrane area in μm^2
+% Vr designates the membrane potential around which the system stabilizes (the original one is -60)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Parameter Values
@@ -36,7 +45,13 @@ n0 = alphan(V0,Vr) / (alphan(V0,Vr) + betan(V0,Vr)); % n
 
  
 % Initialize Output
-Y = zeros(loop*0.05,1); 
+
+Y = zeros(loop,1); 
+
+%You can set an output Y smaller than the length of loop but you have to be carefull 
+%not to underestimate it, because the need to constantly increase the size of Y while the code is running
+%will significantly slow down the process
+
 Y(1,1) = [V0]; %because of the enforced constant timestep we dont need to keep track of time
 
 
